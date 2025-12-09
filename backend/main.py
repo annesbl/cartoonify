@@ -8,7 +8,7 @@ from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
-from diffusers import StableDiffusionImg2ImgPipeline
+from diffusers import StableDiffusionXLImg2ImgPipeline
 
 # -------------------------------------------------------
 # Verzeichnisse & ENV Variablen
@@ -45,16 +45,14 @@ def load_pipeline() -> StableDiffusionImg2ImgPipeline:
         "HF_TOKEN ist nicht gesetzt. Bitte HuggingFace Token als Umgebungsvariable exportieren."
         )
 
-    model_id = "runwayml/stable-diffusion-v1-5"
+    model_id = "stabilityai/stable-diffusion-xl-base-1.0"
 
-    pipe = StableDiffusionImg2ImgPipeline.from_pretrained(
+    pipe = StableDiffusionXLImg2ImgPipeline.from_pretrained(
         model_id,
-        use_auth_token=HF_TOKEN,
-        torch_dtype=torch.float16 if DEVICE != "cpu" else torch.float32,
-        safety_checker=None,  # für Projekt okay, aber aufpassen was generiert wird
-    )
-
-    pipe = pipe.to(DEVICE)
+        torch_dtype=torch.float16,
+        token=HF_TOKEN,
+        safety_checker=None
+    ).to(DEVICE)
 
     if DEVICE != "cpu":
         pipe.enable_attention_slicing()
