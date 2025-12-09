@@ -10,6 +10,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 from diffusers import StableDiffusionImg2ImgPipeline
 
+# -------------------------------------------------------
+# Verzeichnisse & ENV Variablen
+# -------------------------------------------------------
 
 BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = BASE_DIR / "uploads"
@@ -19,8 +22,6 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 
 HF_TOKEN = os.getenv("HF_TOKEN")   # HuggingFace Token
 LORA_PATH = os.getenv("LORA_PATH") # Pfad oder HF-Repo für LoRA, z.B. "lora/simpson"
-
-
 
 # Device wählen
 if torch.backends.mps.is_available():
@@ -33,6 +34,10 @@ else:
 print(f"Using device: {DEVICE}")
 print(f"LoRA path: {LORA_PATH}")
 
+
+# -------------------------------------------------------
+# Stable Diffusion Pipeline laden (einmalig beim Start)
+# -------------------------------------------------------
 
 def load_pipeline() -> StableDiffusionImg2ImgPipeline:
     if HF_TOKEN is None:
@@ -50,9 +55,11 @@ def load_pipeline() -> StableDiffusionImg2ImgPipeline:
     )
 
     pipe = pipe.to(DEVICE)
+
     if DEVICE != "cpu":
         pipe.enable_attention_slicing()
-    
+
+    # --------- LoRA laden (falls gesetzt) ----------
     if LORA_PATH:
         print(f"Lade LoRA-Gewichte von: {LORA_PATH}")
         # Einfacher Fall: im Ordner liegt eine .safetensors-Datei
@@ -66,6 +73,11 @@ def load_pipeline() -> StableDiffusionImg2ImgPipeline:
 
 
 PIPE = load_pipeline()
+
+
+# -------------------------------------------------------
+# FastAPI Setup
+# -------------------------------------------------------
 
 app = FastAPI(title="Simpsonify Yourself API (Stable Diffusion + LoRA)")
 
@@ -81,6 +93,11 @@ app.add_middleware(
 @app.get("/")
 def root():
     return {"message": "Simpsonify Yourself API (Stable Diffusion + LoRA) is running 🚀"}
+
+
+# -------------------------------------------------------
+# Hilfsfunktionen
+# -------------------------------------------------------
 
 def prepare_image(input_path: Path, max_size: int = 768) -> Image.Image:
     """Lädt das Bild und skaliert es auf eine sinnvolle Größe für SD."""
@@ -184,4 +201,3 @@ async def simpsonify_endpoint(
             status_code=500,
             content={"error": str(e)},
         )
-
