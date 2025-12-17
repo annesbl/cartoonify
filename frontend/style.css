@@ -1,0 +1,135 @@
+:root {
+    font-family: ui-sans-serif, system-ui;
+}
+
+body {
+    margin: 0;
+    background: #0b0d12;
+    color: #e8eaf0;
+}
+
+.app {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+header h1 {
+    margin: 0 0 6px 0;
+    font-size: 28px;
+}
+
+header p {
+    margin: 0 0 18px 0;
+    opacity: .8;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+}
+
+.card {
+    background: rgba(255, 255, 255, .06);
+    border: 1px solid rgba(255, 255, 255, .10);
+    border-radius: 16px;
+    padding: 14px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
+}
+
+h2 {
+    margin: 0 0 10px 0;
+    font-size: 16px;
+    opacity: .9;
+}
+
+.img {
+    width: 100%;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, .10);
+    background: #111;
+    min-height: 220px;
+    object-fit: contain;
+}
+
+.row {
+    display: flex;
+    gap: 10px;
+    margin: 10px 0;
+}
+
+button {
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, .14);
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, .08);
+    color: #e8eaf0;
+    cursor: pointer;
+}
+
+button.primary {
+    width: 100%;
+    margin-top: 10px;
+    background: rgba(120, 180, 255, .22);
+}
+
+label {
+    display: block;
+    margin-top: 10px;
+    font-size: 13px;
+    opacity: .85;
+}
+
+input[type="range"],
+input[type="file"],
+input[type="number"],
+textarea {
+    width: 100%;
+    margin-top: 6px;
+}
+
+textarea {
+    border-radius: 12px;
+    padding: 10px;
+    border: 1px solid rgba(255, 255, 255, .14);
+    background: rgba(0, 0, 0, .25);
+    color: #e8eaf0;
+}
+
+.tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.tab.active {
+    background: rgba(255, 255, 255, .16);
+}
+
+.pane {
+    display: none;
+}
+
+.pane.active {
+    display: block;
+}
+
+#canvas {
+    width: 100%;
+    margin-top: 10px;
+    border-radius: 12px;
+    display: none;
+}
+
+.status {
+    margin-top: 10px;
+    font-size: 13px;
+    opacity: .85;
+}
+
+.link {
+    display: inline-block;
+    margin-top: 10px;
+    color: #a9c7ff;
+}

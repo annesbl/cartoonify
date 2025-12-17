@@ -1,10 +1,11 @@
 fastapi
 uvicorn[standard]
+pillow
 python-multipart
-
+torch
 diffusers
 transformers
 accelerate
 safetensors
-torch
-Pillow
+python-dotenv
+
