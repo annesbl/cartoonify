@@ -1,11 +1,16 @@
+# --- API ---
 fastapi
 uvicorn[standard]
-pillow
 python-multipart
+python-dotenv
+pillow
+
+# --- Diffusion stack ---
 torch
 diffusers
 transformers
 accelerate
 safetensors
-python-dotenv
+peft
+
 

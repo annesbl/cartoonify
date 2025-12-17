@@ -3,37 +3,45 @@ import torch
 from diffusers import AutoPipelineForImage2Image
 from PIL import Image
 
+
+def pick_device() -> str:
+    if torch.backends.mps.is_available():
+        return "mps"
+    if torch.cuda.is_available():
+        return "cuda"
+    return "cpu"
+
+
 class SimpsonifyPipeline:
-    def __init__(
-        self,
-        base_model: str,
-        lora_path: str,
-        device: str = "cuda",
-        dtype=torch.float16,
-    ):
-        self.device = device
-        self.dtype = dtype
+    def __init__(self, base_model: str, lora_path: str, device: str | None = None):
+        self.device = device or pick_device()
+        self.dtype = torch.float16 if self.device in ("cuda", "mps") else torch.float32
 
-        # SDXL img2img pipeline
-        self.pipe = AutoPipelineForImage2Image.from_pretrained(
-            base_model,
-            torch_dtype=dtype,
-            variant="fp16",
-        ).to(device)
-
-        # Optional: speed/memory optimizations
-        self.pipe.enable_vae_slicing()
-        self.pipe.enable_xformers_memory_efficient_attention() if hasattr(self.pipe, "enable_xformers_memory_efficient_attention") else None
-
-        # Load LoRA
         if not os.path.isfile(lora_path):
             raise FileNotFoundError(f"LoRA file not found: {lora_path}")
 
+        # For SD1.5, fp16 variant is not a thing we need to force; keep it simple/robust.
+        self.pipe = AutoPipelineForImage2Image.from_pretrained(
+            base_model,
+            torch_dtype=self.dtype,
+        ).to(self.device)
+
+        # Safer slicing call across versions:
+        try:
+            self.pipe.vae.enable_slicing()
+        except Exception:
+            pass
+
+        # xformers typically not available on macOS
+        if self.device == "cuda" and hasattr(self.pipe, "enable_xformers_memory_efficient_attention"):
+            self.pipe.enable_xformers_memory_efficient_attention()
+
+        # Load LoRA
         self.pipe.load_lora_weights(
             os.path.dirname(lora_path),
             weight_name=os.path.basename(lora_path),
+            adapter_name="default_0",
         )
-
 
     @torch.inference_mode()
     def run(
@@ -49,26 +57,23 @@ class SimpsonifyPipeline:
     ) -> Image.Image:
         generator = None
         if seed is not None:
-            generator = torch.Generator(device=self.device).manual_seed(seed)
+            generator = torch.Generator(device=self.device).manual_seed(int(seed))
 
-        # Set LoRA scale (diffusers supports this pattern)
-        if hasattr(self.pipe, "set_adapters"):
-            # For newer diffusers multi-adapter setups (optional)
-            pass
-        # Most common:
-        self.pipe.fuse_lora(lora_scale=lora_scale)
+        # Apply LoRA strength per request (if supported)
+        if hasattr(self.pipe, "fuse_lora"):
+            self.pipe.fuse_lora(lora_scale=float(lora_scale))
 
         out = self.pipe(
             prompt=prompt,
             negative_prompt=negative_prompt,
             image=image,
-            strength=strength,
-            num_inference_steps=steps,
-            guidance_scale=guidance,
+            strength=float(strength),
+            num_inference_steps=int(steps),
+            guidance_scale=float(guidance),
             generator=generator,
         ).images[0]
 
-        # Unfuse so scale changes work per request
-        self.pipe.unfuse_lora()
+        if hasattr(self.pipe, "unfuse_lora"):
+            self.pipe.unfuse_lora()
 
         return out
