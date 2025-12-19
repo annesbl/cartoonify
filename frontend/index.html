@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="de">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Simpsonify – Webcam</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+    <main class="wrap">
+        <h1>Simpsonify – Webcam Capture</h1>
+
+        <div class="grid">
+            <div class="card">
+                <h2>Live Kamera</h2>
+                <video id="video" autoplay playsinline></video>
+
+                <div class="row">
+                    <button id="btnStart">Kamera starten</button>
+                    <button id="btnSnap" disabled>Foto aufnehmen</button>
+                    <button id="btnSend" disabled>An Backend senden</button>
+                    <label class="small" for="prompt">Prompt:</label>
+                    <input id="prompt" type="text"
+                        value="Simpsons style portrait, clean line art, flat colors, cel shading, yellow skin tone, cartoon" />
+
+                </div>
+
+                <p class="small">
+                    Healthcheck: <span id="health">…</span>
+                </p>
+            </div>
+
+            <div class="card">
+                <h2>Snapshot</h2>
+                <canvas id="canvas"></canvas>
+            </div>
+
+            <div class="card">
+                <h2>Backend Result</h2>
+                <img id="result" alt="Result wird hier angezeigt" />
+                <pre id="log">—</pre>
+            </div>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

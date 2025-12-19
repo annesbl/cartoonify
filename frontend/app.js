@@ -1,123 +1,94 @@
-const apiUrl = "http://localhost:8000/simpsonify";
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const btnStart = document.getElementById("btnStart");
+const btnSnap = document.getElementById("btnSnap");
+const btnSend = document.getElementById("btnSend");
+const resultImg = document.getElementById("result");
+const log = document.getElementById("log");
+const health = document.getElementById("health");
 
-const el = (id) => document.getElementById(id);
+let stream = null;
 
-const file = el("file");
-const preview = el("preview");
-const result = el("result");
-const status = el("status");
-const download = el("download");
-
-const strength = el("strength");
-const steps = el("steps");
-const guidance = el("guidance");
-const lora = el("lora");
-const seed = el("seed");
-const prompt = el("prompt");
-const neg = el("neg");
-
-el("strengthVal").textContent = strength.value;
-el("stepsVal").textContent = steps.value;
-el("guidanceVal").textContent = guidance.value;
-el("loraVal").textContent = lora.value;
-
-[strength, steps, guidance, lora].forEach((r) =>
-    r.addEventListener("input", () => {
-        el("strengthVal").textContent = strength.value;
-        el("stepsVal").textContent = steps.value;
-        el("guidanceVal").textContent = guidance.value;
-        el("loraVal").textContent = lora.value;
-    })
-);
-
-// Tabs
-const tabUpload = el("tabUpload");
-const tabCamera = el("tabCamera");
-const uploadPane = el("uploadPane");
-const cameraPane = el("cameraPane");
-
-function setTab(which) {
-    const isUpload = which === "upload";
-    tabUpload.classList.toggle("active", isUpload);
-    tabCamera.classList.toggle("active", !isUpload);
-    uploadPane.classList.toggle("active", isUpload);
-    cameraPane.classList.toggle("active", !isUpload);
-}
-tabUpload.onclick = () => setTab("upload");
-tabCamera.onclick = () => setTab("camera");
-
-// Camera
-const video = el("video");
-const canvas = el("canvas");
-const ctx = canvas.getContext("2d");
-let capturedBlob = null;
-
-el("startCam").onclick = async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-    video.srcObject = stream;
-    status.textContent = "Kamera läuft.";
-};
-
-el("snap").onclick = () => {
-    canvas.style.display = "block";
-    // simple square crop from center
-    const w = video.videoWidth, h = video.videoHeight;
-    const s = Math.min(w, h);
-    const sx = (w - s) / 2, sy = (h - s) / 2;
-    canvas.width = 768; canvas.height = 768;
-    ctx.drawImage(video, sx, sy, s, s, 0, 0, canvas.width, canvas.height);
-
-    canvas.toBlob((blob) => {
-        capturedBlob = blob;
-        preview.src = URL.createObjectURL(blob);
-        status.textContent = "Foto aufgenommen.";
-    }, "image/png");
-};
-
-// Upload preview
-file.onchange = () => {
-    const f = file.files?.[0];
-    if (!f) return;
-    preview.src = URL.createObjectURL(f);
-    capturedBlob = null; // upload takes precedence
-};
-
-el("go").onclick = async () => {
-    status.textContent = "Generiere… (Backend muss laufen)";
-    result.src = "";
-
-    const form = new FormData();
-
-    // Choose input source
-    if (capturedBlob) {
-        form.append("image", capturedBlob, "capture.png");
-    } else {
-        const f = file.files?.[0];
-        if (!f) {
-            status.textContent = "Bitte Bild hochladen oder Foto aufnehmen.";
-            return;
-        }
-        form.append("image", f);
+async function checkHealth() {
+    try {
+        const res = await fetch("/api/health");
+        const data = await res.json();
+        health.textContent = data.status;
+    } catch {
+        health.textContent = "failed";
     }
+}
 
-    form.append("strength", strength.value);
-    form.append("steps", steps.value);
-    form.append("guidance", guidance.value);
-    form.append("lora_scale", lora.value);
-    if (seed.value) form.append("seed", seed.value);
+btnStart.addEventListener("click", async () => {
+    log.textContent = "Starte Kamera...";
+    try {
+        // Wichtig: funktioniert nur auf https oder http://localhost / 127.0.0.1
+        stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "user" },
+            audio: false
+        });
 
-    if (prompt.value.trim()) form.append("prompt", prompt.value.trim());
-    if (neg.value.trim()) form.append("negative_prompt", neg.value.trim());
+        video.srcObject = stream;
 
-    const res = await fetch(apiUrl, { method: "POST", body: form });
-    if (!res.ok) {
-        status.textContent = `Fehler: ${res.status} ${await res.text()}`;
+        btnSnap.disabled = false;
+        log.textContent = "Kamera läuft. Du kannst jetzt ein Foto aufnehmen.";
+    } catch (e) {
+        log.textContent = "Kamera-Fehler: " + e;
+    }
+});
+
+btnSnap.addEventListener("click", () => {
+    if (!video.videoWidth) {
+        log.textContent = "Video noch nicht bereit.";
         return;
     }
 
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    result.src = url;
-    download.href = url;
-    status.textContent = "Fertig.";
-};
+    // Snapshot in Canvas zeichnen
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0);
+
+    btnSend.disabled = false;
+    log.textContent = "Snapshot aufgenommen. Du kannst es jetzt ans Backend senden.";
+});
+
+function canvasToBlob(canvasEl) {
+    return new Promise((resolve) => {
+        canvasEl.toBlob((blob) => resolve(blob), "image/png", 1.0);
+    });
+}
+
+const promptEl = document.getElementById("prompt");
+
+btnSend.addEventListener("click", async () => {
+    log.textContent = "Sende Bild ans Backend...";
+    resultImg.removeAttribute("src");
+
+    try {
+        const blob = await canvasToBlob(canvas);
+
+        const form = new FormData();
+        form.append("image", blob, "snapshot.png");
+        form.append("prompt", promptEl ? promptEl.value : "");
+        form.append("use_lora", "1"); // später testweise "0"
+
+        const res = await fetch("/api/simpsonify", {
+            method: "POST",
+            body: form
+        });
+
+        if (!res.ok) {
+            const txt = await res.text();
+            throw new Error(`HTTP ${res.status}: ${txt}`);
+        }
+
+        const outBlob = await res.blob();
+        const url = URL.createObjectURL(outBlob);
+        resultImg.src = url;
+
+        log.textContent = "Fertig. Ergebnisbild ist da.";
+    } catch (e) {
+        log.textContent = "Fehler: " + e;
+    }
+});
