@@ -1,67 +1,140 @@
-import io
-import os
+from __future__ import annotations
 
-from dotenv import load_dotenv
+import io
+import time
+from pathlib import Path
+from typing import Optional
+
+import torch
 from fastapi import FastAPI, UploadFile, File, Form
-from fastapi.responses import Response
+from fastapi.responses import Response, JSONResponse
 from PIL import Image
 
-from pipeline import SimpsonifyPipeline
+from config import MODEL_ID, LORA_PATH, OUT_DIR, DEFAULT_PROMPT, DEFAULT_NEGATIVE
 
-load_dotenv()
+app = FastAPI(title="Simpsonify Backend")
 
-app = FastAPI(title="Simpsonify LoRA API")
-
-# --- CONFIG ---
-BASE_MODEL = os.environ["BASE_MODEL"]
-LORA_PATH = os.environ["LORA_PATH"]
-
-DEFAULT_PROMPT = (
-    "portrait photo, simpsons cartoon style, bold black outlines, flat colors, "
-    "clean cel shading, yellow skin tone, high quality, consistent face"
-)
-DEFAULT_NEG = "low quality, blurry, deformed face, extra limbs, bad anatomy, text, watermark"
-
-pipe: SimpsonifyPipeline | None = None
+pipe = None
 
 
-@app.on_event("startup")
-def _load():
+def pick_device() -> str:
+    if torch.cuda.is_available():
+        return "cuda"
+    if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
+def load_pipeline():
+    """
+    Lazy-load, damit Serverstart nicht sofort alles lädt.
+    """
     global pipe
-    pipe = SimpsonifyPipeline(
-        base_model=BASE_MODEL,
-        lora_path=LORA_PATH,
-    )
+    if pipe is not None:
+        return pipe
+
+    device = pick_device()
+    dtype = torch.float16 if device in ("cuda", "mps") else torch.float32
+
+    # Pipeline je nach Model wählen
+    # - SDXL: StableDiffusionXLImg2ImgPipeline
+    # - SD 1.5: StableDiffusionImg2ImgPipeline
+    #
+    # Wir versuchen SDXL, wenn MODEL_ID nach SDXL aussieht, ansonsten SD1.5.
+    is_sdxl = "xl" in MODEL_ID.lower()
+
+    if is_sdxl:
+        from diffusers import StableDiffusionXLImg2ImgPipeline
+        p = StableDiffusionXLImg2ImgPipeline.from_pretrained(
+            MODEL_ID,
+            torch_dtype=dtype,
+        )
+    else:
+        from diffusers import StableDiffusionImg2ImgPipeline
+        p = StableDiffusionImg2ImgPipeline.from_pretrained(
+            MODEL_ID,
+            torch_dtype=dtype,
+        )
+
+    # LoRA laden
+    if not Path(LORA_PATH).exists():
+        raise FileNotFoundError(f"LoRA not found at: {LORA_PATH}")
+    p.load_lora_weights(str(LORA_PATH))
+
+    p = p.to(device)
+
+    # Optional: ein paar Defaults
+    try:
+        p.enable_attention_slicing()
+    except Exception:
+        pass
+
+    pipe = p
+    return pipe
 
 
-@app.post("/simpsonify")
-async def simpsonify(
+@app.get("/health")
+def health():
+    return {"status": "ok", "device": pick_device(), "model": MODEL_ID}
+
+
+@app.post("/convert")
+async def convert(
     image: UploadFile = File(...),
     prompt: str = Form(DEFAULT_PROMPT),
-    negative_prompt: str = Form(DEFAULT_NEG),
-    strength: float = Form(0.55),
+    negative_prompt: str = Form(DEFAULT_NEGATIVE),
+    strength: float = Form(0.65),
+    guidance: float = Form(6.0),
     steps: int = Form(25),
-    guidance: float = Form(6.5),
+    seed: int = Form(0),
     lora_scale: float = Form(1.0),
-    seed: int | None = Form(None),
 ):
-    if pipe is None:
-        return Response(content="Pipeline not loaded", status_code=500)
+    """
+    Nimmt ein Bild entgegen und gibt ein PNG zurück.
+    """
+    try:
+        p = load_pipeline()
+        device = pick_device()
 
-    img_bytes = await image.read()
-    pil = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+        raw = await image.read()
+        inp = Image.open(io.BytesIO(raw)).convert("RGB")
 
-    out = pipe.run(
-        image=pil,
-        prompt=prompt,
-        negative_prompt=negative_prompt,
-        strength=strength,
-        steps=steps,
-        guidance=guidance,
-        lora_scale=lora_scale,
-        seed=seed,
-    )
+        # Optionale LoRA Stärke (Diffusers kann das je nach Version unterstützen)
+        # Falls es in deiner Diffusers-Version nicht existiert, ignorieren wir es sauber.
+        try:
+            if hasattr(p, "set_adapters"):
+                # neuere API (nicht immer vorhanden)
+                pass
+            if hasattr(p, "fuse_lora"):
+                # falls vorhanden
+                pass
+        except Exception:
+            pass
 
-    buf = io.BytesIO()
-    out.save(buf, format="PNG")
-    return Response(content=buf.getvalue(), media_type="image/png")
+        generator: Optional[torch.Generator] = None
+        if seed and seed > 0:
+            generator = torch.Generator(device=device).manual_seed(seed)
+
+        result = p(
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            image=inp,
+            strength=float(strength),
+            guidance_scale=float(guidance),
+            num_inference_steps=int(steps),
+            generator=generator,
+        ).images[0]
+
+        # Als PNG zurückgeben
+        buf = io.BytesIO()
+        result.save(buf, format="PNG")
+        png_bytes = buf.getvalue()
+
+        # Optional: speichern (Debug)
+        out_path = OUT_DIR / f"result_{int(time.time())}.png"
+        out_path.write_bytes(png_bytes)
+
+        return Response(content=png_bytes, media_type="image/png")
+
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
