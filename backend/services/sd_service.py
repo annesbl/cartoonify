@@ -1,3 +1,16 @@
+# backend/services/sd_service.py
+"""
+Stable Diffusion img2img + LoRA service (macOS-friendly).
+
+Key properties:
+- Lazy-loads the pipeline once (first request).
+- macOS/MPS stability: uses float32 (avoids blocky/NaN artifacts common with fp16 on MPS).
+- Disables Safety Checker (prevents black images due to false positives) for local dev.
+- Robust LoRA activation via adapter_name + set_adapters (no guessing).
+- Deterministic seeding without using torch.Generator(device="mps") (often unsupported).
+- Simple, reliable preprocessing: center-crop to square and resize to 512x512.
+"""
+
 from __future__ import annotations
 
 import os
@@ -6,15 +19,14 @@ from io import BytesIO
 from typing import Optional, Tuple
 
 import torch
-from PIL import Image
+from PIL import Image, ImageOps
 
 from diffusers import StableDiffusionImg2ImgPipeline
 
-try:
-    # Available in diffusers for SDXL img2img
-    from diffusers import StableDiffusionXLImg2ImgPipeline
-except Exception:
-    StableDiffusionXLImg2ImgPipeline = None  # type: ignore
+
+# ----------------------------
+# Config
+# ----------------------------
 
 
 @dataclass
@@ -22,133 +34,118 @@ class SDConfig:
     base_model: str
     lora_path: str
     device: str
-    use_sdxl: bool
     guidance_scale: float
     strength: float
     num_inference_steps: int
     seed: Optional[int]
+    lora_scale: float
+    debug: bool
 
 
-_PIPE: Optional[object] = None
+_PIPE: Optional[StableDiffusionImg2ImgPipeline] = None
 _CFG: Optional[SDConfig] = None
+
+_ADAPTER_NAME = "simpsons"
 
 
 def _pick_device(explicit: Optional[str] = None) -> str:
     if explicit:
         return explicit
+    # Prefer MPS on Apple Silicon if available
     if torch.backends.mps.is_available():
         return "mps"
     return "cpu"
 
 
-def _dtype_for(device: str) -> torch.dtype:
-    # macOS MPS: float16 ist oft instabil -> schwarze Bilder / NaNs
-    if device == "mps":
-        return torch.float32
-    return torch.float32
-
-
 def load_config_from_env() -> SDConfig:
     base_model = os.getenv("SD_BASE_MODEL", "runwayml/stable-diffusion-v1-5")
-    lora_path = os.getenv("SD_LORA_PATH", "./lora.safetensors")
+    lora_path = os.getenv(
+        "SD_LORA_PATH", "./backend/models/simpsons_style_lora-000008.safetensors"
+    )
 
     device = _pick_device(os.getenv("SD_DEVICE"))
 
-    # Decide SDXL vs SD1.5:
-    # - set SD_USE_SDXL=1 explicitly, OR
-    # - infer from model name containing "xl"
-    use_sdxl = os.getenv("SD_USE_SDXL", "").strip() == "1" or (
-        "xl" in base_model.lower()
-    )
+    guidance = float(os.getenv("SD_GUIDANCE", "7.0"))
+    strength = float(os.getenv("SD_STRENGTH", "0.28"))
+    steps = int(os.getenv("SD_STEPS", "20"))
 
-    guidance_scale = float(os.getenv("SD_GUIDANCE", "7.0"))
-    strength = float(os.getenv("SD_STRENGTH", "0.65"))
-    steps = int(os.getenv("SD_STEPS", "25"))
     seed_raw = os.getenv("SD_SEED", "").strip()
     seed = int(seed_raw) if seed_raw else None
+
+    lora_scale = float(os.getenv("SD_LORA_SCALE", "1.6"))
+    debug = os.getenv("SD_DEBUG", "0").strip() == "1"
 
     return SDConfig(
         base_model=base_model,
         lora_path=lora_path,
         device=device,
-        use_sdxl=use_sdxl,
-        guidance_scale=guidance_scale,
+        guidance_scale=guidance,
         strength=strength,
         num_inference_steps=steps,
         seed=seed,
+        lora_scale=lora_scale,
+        debug=debug,
     )
 
 
-def _load_pipeline(cfg: SDConfig):
+# ----------------------------
+# Pipeline load / cache
+# ----------------------------
 
-    dtype = _dtype_for(cfg.device)
 
-    if cfg.use_sdxl:
-        if StableDiffusionXLImg2ImgPipeline is None:
-            raise RuntimeError(
-                "SDXL pipeline not available in your diffusers version. Please update diffusers."
-            )
-        pipe = StableDiffusionXLImg2ImgPipeline.from_pretrained(
-            cfg.base_model,
-            torch_dtype=dtype,
-            variant="fp16" if dtype == torch.float16 else None,
-        )
-    else:
-        pipe = StableDiffusionImg2ImgPipeline.from_pretrained(
-            cfg.base_model,
-            torch_dtype=dtype,
-        )
+def _load_pipeline(cfg: SDConfig) -> StableDiffusionImg2ImgPipeline:
+    # macOS/MPS stability: always float32
+    dtype = torch.float32
+
+    pipe = StableDiffusionImg2ImgPipeline.from_pretrained(
+        cfg.base_model,
+        torch_dtype=dtype,
+        safety_checker=None,  # prevents black images due to false positives
+        feature_extractor=None,
+    )
 
     pipe = pipe.to(cfg.device)
-    print("==== DIFFUSION DEBUG ====")
-    print("PIPE:", pipe.__class__.__name__)
-    print("BASE MODEL:", cfg.base_model)
-    print("LORA PATH:", cfg.lora_path)
-    print("==========================")
-    # Disable safety checker for local dev (prevents black images on false positives)
-    if hasattr(pipe, "safety_checker"):
-        pipe.safety_checker = None
-    if hasattr(pipe, "requires_safety_checker"):
-        pipe.requires_safety_checker = False
 
-    # Mac-friendly memory tweaks
-    pipe.enable_attention_slicing()
-
-    import os
-
-    adapter_name = "simpsons"
-    lora_scale = float(os.getenv("SD_LORA_SCALE", "1.0"))
-
-    # --- Load LoRA with an explicit adapter name
-    pipe.load_lora_weights(cfg.lora_path, adapter_name=adapter_name)
-    ap = next(iter(pipe.unet.attn_processors.values()))
-    print("ATTN_PROCESSOR_TYPE:", type(ap))
-
-    # --- Activate adapter (this is the part many people miss)
+    # Prefer stable VAE slicing
     try:
-        pipe.set_adapters([adapter_name], adapter_weights=[lora_scale])
-    except Exception as e:
-        print("WARN set_adapters failed:", e)
-
-    # --- Fuse LoRA into weights (often makes the effect much stronger & consistent)
-    try:
-        pipe.fuse_lora(adapter_names=[adapter_name], lora_scale=lora_scale)
-    except Exception:
-        try:
-            pipe.fuse_lora(lora_scale=lora_scale)
-        except Exception as e:
-            print("WARN fuse_lora failed:", e)
-
-    # Optional speed/memory helpers if present:
-    try:
-        pipe.enable_vae_slicing()
+        pipe.vae.enable_slicing()
     except Exception:
         pass
+
+    # LoRA
+    # Explicit adapter name + activation (robust)
+    # --- LoRA / attn_procs loading (robust fallback)
+
+    lora_scale = float(os.getenv("SD_LORA_SCALE", "1.0"))
+
+    loaded = False
+
+    # Try modern PEFT-style first
+    try:
+        pipe.load_lora_weights(cfg.lora_path, adapter_name=_ADAPTER_NAME)
+        try:
+            pipe.set_adapters([_ADAPTER_NAME], adapter_weights=[lora_scale])
+        except Exception:
+            pass
+        loaded = True
+    except Exception as e:
+        if cfg.debug:
+            print("WARN load_lora_weights failed:", e)
+
+    # Fallback: classic attn procs
+    if not loaded:
+        pipe.unet.load_attn_procs(cfg.lora_path)
+        loaded = True
+
+    # Verify injection
+    if cfg.debug:
+        ap = next(iter(pipe.unet.attn_processors.values()))
+        print("ATTN_PROCESSOR_TYPE:", type(ap))
 
     return pipe
 
 
-def get_pipeline() -> Tuple[object, SDConfig]:
+def get_pipeline() -> Tuple[StableDiffusionImg2ImgPipeline, SDConfig]:
     global _PIPE, _CFG
     if _PIPE is None or _CFG is None:
         cfg = load_config_from_env()
@@ -157,59 +154,65 @@ def get_pipeline() -> Tuple[object, SDConfig]:
     return _PIPE, _CFG
 
 
+# ----------------------------
+# Image preprocessing
+# ----------------------------
+
+
+def _preprocess_image(image_bytes: bytes) -> Image.Image:
+    """
+    Center-crop to square and resize to 512x512 (SD1.5 sweet spot).
+    centering y=0.35 biases crop upward (better for faces in webcam frames).
+    """
+    img = Image.open(BytesIO(image_bytes)).convert("RGB")
+    img = ImageOps.fit(img, (512, 512), method=Image.LANCZOS, centering=(0.5, 0.35))
+    return img
+
+
+# ----------------------------
+# Main inference
+# ----------------------------
+
+
 def simpsonify_image_bytes(
     image_bytes: bytes,
     prompt: str,
-    negative_prompt: str | None = None,
+    negative_prompt: Optional[str] = None,
     use_lora: bool = True,
 ) -> bytes:
-
     pipe, cfg = get_pipeline()
 
-    adapter_name = "simpsons"
-    lora_scale = float(os.getenv("SD_LORA_SCALE", "1.0"))
-
+    # (Optional) switch LoRA on/off per call (for A/B testing)
     if use_lora:
         try:
-            pipe.set_adapters([adapter_name], adapter_weights=[lora_scale])
+            pipe.set_adapters([_ADAPTER_NAME], adapter_weights=[cfg.lora_scale])
         except Exception:
             pass
     else:
-        # disable adapters
         try:
-            pipe.set_adapters([], adapter_weights=[])
+            pipe.set_adapters([_ADAPTER_NAME], adapter_weights=[0.0])
         except Exception:
-            # fallback: try to disable by setting scale to 0
             pass
 
-    img = Image.open(BytesIO(image_bytes)).convert("RGB")
-    w, h = img.size
-    # Crop center area (portrait)
-    crop_w = int(w * 0.65)
-    crop_h = int(h * 0.65)
-    left = (w - crop_w) // 2
-    top = int((h - crop_h) * 0.25)  # etwas nach oben verschoben
-    img = img.crop((left, top, left + crop_w, top + crop_h))
+    img = _preprocess_image(image_bytes)
 
-    # Reasonable size for macOS; keep aspect ratio. SDXL likes ~1024, SD1.5 likes ~512.
-    target = 1024 if cfg.use_sdxl else 512
-    img.thumbnail((target, target), Image.LANCZOS)
-    img = img.resize((512, 512))
-
-    generator = None
+    # Deterministic seeding: avoid torch.Generator(device="mps") (often unsupported)
+    gen = None
     if cfg.seed is not None:
-        generator = torch.Generator(device=cfg.device).manual_seed(cfg.seed)
-    lora_scale = float(os.getenv("SD_LORA_SCALE", "1.4"))
+        if cfg.device == "mps":
+            gen = torch.Generator(device="cpu").manual_seed(int(cfg.seed))
+        else:
+            gen = torch.Generator(device=cfg.device).manual_seed(int(cfg.seed))
+
     # Run img2img
     result = pipe(
         prompt=prompt,
         image=img,
-        strength=cfg.strength,
-        guidance_scale=cfg.guidance_scale,
-        num_inference_steps=cfg.num_inference_steps,
+        strength=float(cfg.strength),
+        guidance_scale=float(cfg.guidance_scale),
+        num_inference_steps=int(cfg.num_inference_steps),
         negative_prompt=negative_prompt,
-        generator=generator,
-        cross_attention_kwargs={"scale": lora_scale},
+        generator=gen,
     )
 
     out = result.images[0]

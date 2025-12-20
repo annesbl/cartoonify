@@ -28,6 +28,7 @@ async def simpsonify(
         image_bytes=data,
         prompt=prompt,
         negative_prompt=negative_prompt,
-        use_lora=bool(use_lora),  # <-- NEU
+        use_lora=bool(use_lora),
     )
+
     return Response(content=out_png_bytes, media_type="image/png")
