@@ -72,7 +72,8 @@ btnSend.addEventListener("click", async () => {
         form.append("image", blob, "snapshot.png");
         form.append("prompt", promptEl ? promptEl.value : "");
         form.append("use_lora", "1"); // später testweise "0"
-
+        form.append("negative_prompt",
+            "photo, realistic, semi-realistic, painting, watercolor, illustration, sketch, soft shading, smooth skin, beauty, makeup, cinematic lighting, depth of field, bokeh, detailed skin, pores, hdr, 3d render")
         const res = await fetch("/api/simpsonify", {
             method: "POST",
             body: form

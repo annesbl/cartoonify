@@ -18,7 +18,8 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 
-BACKEND_URL = "http://127.0.0.1:8000/convert"
+BACKEND_URL = "http://127.0.0.1:8000/api/simpsonify"
+
 
 
 def frame_to_pixmap(frame_bgr) -> QPixmap:
@@ -144,8 +145,8 @@ class Main(QWidget):
             with open(input_path, "rb") as f:
                 files = {"image": ("capture.png", f, "image/png")}
                 data = {
-                    "prompt": "simpsons style, clean lineart, flat colors, cartoon, high quality",
-                    "strength": "0.65",
+                    "prompt": "simpsons character, thick black outline, very simple face, flat solid colors, yellow skin, 2D cel animation, cartoon TV show style, no shading, simple shapes",
+                    "strength": "0.75",
                     "guidance": "6.0",
                     "steps": "25",
                     "seed": "0",

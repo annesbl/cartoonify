@@ -8,7 +8,8 @@ MODEL_ID = "runwayml/stable-diffusion-v1-5"
 
 # Dein LoRA hier ablegen:
 APP_DIR = Path(__file__).parent
-LORA_PATH = APP_DIR /"backend" / "models" / "simpsons_style_lora-000008.safetensors"
+LORA_PATH = APP_DIR / "models" / "simpsons_style_lora-000008.safetensors"
+
 
 # Output
 OUT_DIR = APP_DIR / "outputs"

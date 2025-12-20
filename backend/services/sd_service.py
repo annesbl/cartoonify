@@ -1,14 +1,15 @@
 # backend/services/sd_service.py
 """
-Stable Diffusion img2img + LoRA service (macOS-friendly).
+Stable Diffusion img2img + LoRA service (Simpsonify – final tuned).
 
-Key properties:
-- Lazy-loads the pipeline once (first request).
-- macOS/MPS stability: uses float32 (avoids blocky/NaN artifacts common with fp16 on MPS).
-- Disables Safety Checker (prevents black images due to false positives) for local dev.
-- Robust LoRA activation via adapter_name + set_adapters (no guessing).
-- Deterministic seeding without using torch.Generator(device="mps") (often unsupported).
-- Simple, reliable preprocessing: center-crop to square and resize to 512x512.
+- Lazy-load pipeline
+- CUDA fp16 / CPU-MPS fp32
+- Safety checker disabled (local dev)
+- PEFT LoRA with adapter control
+- Deterministic seeding
+- Two-pass img2img:
+  Pass 1: force yellow + flat colors
+  Pass 2: enforce outlines + Simpsons style
 """
 
 from __future__ import annotations
@@ -16,18 +17,21 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from io import BytesIO
+from pathlib import Path
 from typing import Optional, Tuple
 
+import numpy as np
 import torch
 from PIL import Image, ImageOps
+from safetensors.torch import load_file as safetensors_load_file
 
-from diffusers import StableDiffusionImg2ImgPipeline
+from diffusers import StableDiffusionImg2ImgPipeline, EulerAncestralDiscreteScheduler
+from diffusers.utils import is_peft_available
 
 
-# ----------------------------
+# ============================
 # Config
-# ----------------------------
-
+# ============================
 
 @dataclass
 class SDConfig:
@@ -44,6 +48,7 @@ class SDConfig:
 
 _PIPE: Optional[StableDiffusionImg2ImgPipeline] = None
 _CFG: Optional[SDConfig] = None
+_DID_AB = False
 
 _ADAPTER_NAME = "simpsons"
 
@@ -51,96 +56,67 @@ _ADAPTER_NAME = "simpsons"
 def _pick_device(explicit: Optional[str] = None) -> str:
     if explicit:
         return explicit
-    # Prefer MPS on Apple Silicon if available
+    if torch.cuda.is_available():
+        return "cuda"
     if torch.backends.mps.is_available():
         return "mps"
     return "cpu"
 
 
 def load_config_from_env() -> SDConfig:
-    base_model = os.getenv("SD_BASE_MODEL", "runwayml/stable-diffusion-v1-5")
-    lora_path = os.getenv(
-        "SD_LORA_PATH", "./backend/models/simpsons_style_lora-000008.safetensors"
-    )
-
-    device = _pick_device(os.getenv("SD_DEVICE"))
-
-    guidance = float(os.getenv("SD_GUIDANCE", "7.0"))
-    strength = float(os.getenv("SD_STRENGTH", "0.28"))
-    steps = int(os.getenv("SD_STEPS", "20"))
-
-    seed_raw = os.getenv("SD_SEED", "").strip()
-    seed = int(seed_raw) if seed_raw else None
-
-    lora_scale = float(os.getenv("SD_LORA_SCALE", "1.6"))
-    debug = os.getenv("SD_DEBUG", "0").strip() == "1"
-
     return SDConfig(
-        base_model=base_model,
-        lora_path=lora_path,
-        device=device,
-        guidance_scale=guidance,
-        strength=strength,
-        num_inference_steps=steps,
-        seed=seed,
-        lora_scale=lora_scale,
-        debug=debug,
+        base_model=os.getenv("SD_BASE_MODEL", "runwayml/stable-diffusion-v1-5"),
+        lora_path=os.getenv(
+            "SD_LORA_PATH",
+            "/root/simpsonify/simpsonify/backend/models/simpsons_style_lora-000008.safetensors",
+        ),
+        device=_pick_device(os.getenv("SD_DEVICE")),
+        guidance_scale=float(os.getenv("SD_GUIDANCE", "7.8")),
+        strength=float(os.getenv("SD_STRENGTH", "0.80")),
+        num_inference_steps=int(os.getenv("SD_STEPS", "40")),
+        seed=int(os.getenv("SD_SEED")) if os.getenv("SD_SEED") else None,
+        lora_scale=float(os.getenv("SD_LORA_SCALE", "2.0")),
+        debug=os.getenv("SD_DEBUG", "0") == "1",
     )
 
 
-# ----------------------------
-# Pipeline load / cache
-# ----------------------------
-
+# ============================
+# Pipeline
+# ============================
 
 def _load_pipeline(cfg: SDConfig) -> StableDiffusionImg2ImgPipeline:
-    # macOS/MPS stability: always float32
-    dtype = torch.float32
+    dtype = torch.float16 if cfg.device == "cuda" else torch.float32
 
     pipe = StableDiffusionImg2ImgPipeline.from_pretrained(
         cfg.base_model,
         torch_dtype=dtype,
-        safety_checker=None,  # prevents black images due to false positives
+        safety_checker=None,
         feature_extractor=None,
+    ).to(cfg.device)
+
+    pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(
+        pipe.scheduler.config
     )
 
-    pipe = pipe.to(cfg.device)
-
-    # Prefer stable VAE slicing
     try:
         pipe.vae.enable_slicing()
     except Exception:
         pass
 
-    # LoRA
-    # Explicit adapter name + activation (robust)
-    # --- LoRA / attn_procs loading (robust fallback)
+    lora_path = str(Path(cfg.lora_path).resolve())
 
-    lora_scale = float(os.getenv("SD_LORA_SCALE", "1.0"))
+    pipe.load_lora_weights(lora_path, adapter_name=_ADAPTER_NAME)
+    pipe.set_adapters([_ADAPTER_NAME], adapter_weights=[cfg.lora_scale])
 
-    loaded = False
-
-    # Try modern PEFT-style first
-    try:
-        pipe.load_lora_weights(cfg.lora_path, adapter_name=_ADAPTER_NAME)
-        try:
-            pipe.set_adapters([_ADAPTER_NAME], adapter_weights=[lora_scale])
-        except Exception:
-            pass
-        loaded = True
-    except Exception as e:
-        if cfg.debug:
-            print("WARN load_lora_weights failed:", e)
-
-    # Fallback: classic attn procs
-    if not loaded:
-        pipe.unet.load_attn_procs(cfg.lora_path)
-        loaded = True
-
-    # Verify injection
     if cfg.debug:
-        ap = next(iter(pipe.unet.attn_processors.values()))
-        print("ATTN_PROCESSOR_TYPE:", type(ap))
+        print("\n=== PIPE INIT ===")
+        print("DEVICE:", cfg.device)
+        print("DTYPE:", dtype)
+        print("LORA:", lora_path)
+        print("PEFT:", is_peft_available())
+
+        sd = safetensors_load_file(lora_path)
+        print("LoRA keys:", len(sd))
 
     return pipe
 
@@ -148,31 +124,25 @@ def _load_pipeline(cfg: SDConfig) -> StableDiffusionImg2ImgPipeline:
 def get_pipeline() -> Tuple[StableDiffusionImg2ImgPipeline, SDConfig]:
     global _PIPE, _CFG
     if _PIPE is None or _CFG is None:
-        cfg = load_config_from_env()
-        _PIPE = _load_pipeline(cfg)
-        _CFG = cfg
+        _CFG = load_config_from_env()
+        _PIPE = _load_pipeline(_CFG)
     return _PIPE, _CFG
 
 
-# ----------------------------
-# Image preprocessing
-# ----------------------------
-
+# ============================
+# Image helpers
+# ============================
 
 def _preprocess_image(image_bytes: bytes) -> Image.Image:
-    """
-    Center-crop to square and resize to 512x512 (SD1.5 sweet spot).
-    centering y=0.35 biases crop upward (better for faces in webcam frames).
-    """
     img = Image.open(BytesIO(image_bytes)).convert("RGB")
-    img = ImageOps.fit(img, (512, 512), method=Image.LANCZOS, centering=(0.5, 0.35))
-    return img
+    return ImageOps.fit(
+        img, (512, 512), method=Image.LANCZOS, centering=(0.5, 0.35)
+    )
 
 
-# ----------------------------
+# ============================
 # Main inference
-# ----------------------------
-
+# ============================
 
 def simpsonify_image_bytes(
     image_bytes: bytes,
@@ -180,42 +150,68 @@ def simpsonify_image_bytes(
     negative_prompt: Optional[str] = None,
     use_lora: bool = True,
 ) -> bytes:
+
     pipe, cfg = get_pipeline()
 
-    # (Optional) switch LoRA on/off per call (for A/B testing)
     if use_lora:
-        try:
-            pipe.set_adapters([_ADAPTER_NAME], adapter_weights=[cfg.lora_scale])
-        except Exception:
-            pass
+        pipe.set_adapters([_ADAPTER_NAME], adapter_weights=[cfg.lora_scale])
     else:
-        try:
-            pipe.set_adapters([_ADAPTER_NAME], adapter_weights=[0.0])
-        except Exception:
-            pass
+        pipe.set_adapters([_ADAPTER_NAME], adapter_weights=[0.0])
 
     img = _preprocess_image(image_bytes)
 
-    # Deterministic seeding: avoid torch.Generator(device="mps") (often unsupported)
     gen = None
     if cfg.seed is not None:
-        if cfg.device == "mps":
-            gen = torch.Generator(device="cpu").manual_seed(int(cfg.seed))
-        else:
-            gen = torch.Generator(device=cfg.device).manual_seed(int(cfg.seed))
+        gen = torch.Generator(device="cpu").manual_seed(cfg.seed)
 
-    # Run img2img
-    result = pipe(
-        prompt=prompt,
-        image=img,
-        strength=float(cfg.strength),
-        guidance_scale=float(cfg.guidance_scale),
-        num_inference_steps=int(cfg.num_inference_steps),
-        negative_prompt=negative_prompt,
-        generator=gen,
+    base_prompt = prompt.strip()
+
+    # -------------------------
+    # PASS 1 – FORCE YELLOW
+    # -------------------------
+    pass1_prompt = (
+        base_prompt
+        + ", bright yellow skin, flat solid colors, no shading, simple shapes, 2D cel animation"
     )
 
-    out = result.images[0]
+    pass1_neg = (
+        negative_prompt
+        or "photo, realistic, natural skin, pores, cinematic lighting, depth of field, bokeh, hdr, 3d render"
+    )
+
+    img1 = pipe(
+        prompt=pass1_prompt,
+        negative_prompt=pass1_neg,
+        image=img,
+        strength=0.55,
+        guidance_scale=4.5,
+        num_inference_steps=20,
+        generator=gen,
+    ).images[0]
+
+    # -------------------------
+    # PASS 2 – OUTLINES + STYLE
+    # -------------------------
+    pass2_prompt = (
+        base_prompt
+        + ", thick black outline, clean lineart, flat colors, simple shapes, 2D cartoon TV show"
+    )
+
+    pass2_neg = (
+        negative_prompt
+        or "photo, realistic, watercolor, painting, soft shading, blur"
+    )
+
+    img2 = pipe(
+        prompt=pass2_prompt,
+        negative_prompt=pass2_neg,
+        image=img1,
+        strength=0.50,
+        guidance_scale=6.0,
+        num_inference_steps=40,
+        generator=gen,
+    ).images[0]
+
     buf = BytesIO()
-    out.save(buf, format="PNG")
+    img2.save(buf, format="PNG")
     return buf.getvalue()
