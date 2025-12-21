@@ -7,6 +7,9 @@ const resultImg = document.getElementById("result");
 const log = document.getElementById("log");
 const health = document.getElementById("health");
 
+const promptEl = document.getElementById("prompt");
+const negativeEl = document.getElementById("negative");
+
 let stream = null;
 
 async function checkHealth() {
@@ -16,6 +19,21 @@ async function checkHealth() {
         health.textContent = data.status;
     } catch {
         health.textContent = "failed";
+    }
+}
+
+async function loadConfig() {
+    try {
+        const res = await fetch("/api/config");
+        if (!res.ok) throw new Error("config fetch failed");
+        const cfg = await res.json();
+
+        if (promptEl && cfg.default_prompt) promptEl.value = cfg.default_prompt;
+        if (negativeEl && cfg.default_negative_prompt) negativeEl.value = cfg.default_negative_prompt;
+
+        log.textContent = "Config geladen. Du kannst starten.";
+    } catch (e) {
+        log.textContent = "Konnte Config nicht laden (fallback).";
     }
 }
 
@@ -43,7 +61,6 @@ btnSnap.addEventListener("click", () => {
         return;
     }
 
-    // Snapshot in Canvas zeichnen
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext("2d");
@@ -59,8 +76,6 @@ function canvasToBlob(canvasEl) {
     });
 }
 
-const promptEl = document.getElementById("prompt");
-
 btnSend.addEventListener("click", async () => {
     log.textContent = "Sende Bild ans Backend...";
     resultImg.removeAttribute("src");
@@ -71,9 +86,9 @@ btnSend.addEventListener("click", async () => {
         const form = new FormData();
         form.append("image", blob, "snapshot.png");
         form.append("prompt", promptEl ? promptEl.value : "");
-        form.append("use_lora", "1"); // später testweise "0"
-        form.append("negative_prompt",
-            "photo, realistic, semi-realistic, painting, watercolor, illustration, sketch, soft shading, smooth skin, beauty, makeup, cinematic lighting, depth of field, bokeh, detailed skin, pores, hdr, 3d render")
+        form.append("negative_prompt", negativeEl ? negativeEl.value : "");
+        form.append("use_lora", "1"); // testweise "0" zum Vergleich
+
         const res = await fetch("/api/simpsonify", {
             method: "POST",
             body: form
@@ -93,3 +108,7 @@ btnSend.addEventListener("click", async () => {
         log.textContent = "Fehler: " + e;
     }
 });
+
+// init
+loadConfig();
+checkHealth();

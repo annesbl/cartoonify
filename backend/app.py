@@ -1,9 +1,15 @@
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
+# backend/app.py
+from __future__ import annotations
+
 from pathlib import Path
 
-from routes import router as api_router
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
+from dotenv import load_dotenv
+load_dotenv()
+
+from backend.routes import router as api_router  # <-- FIX: package import
 
 FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
 
