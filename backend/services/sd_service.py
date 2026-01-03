@@ -33,6 +33,8 @@ _ADAPTER_NAME = "simpsons"
 
 
 def _load_pipeline(cfg: SimpsonifySettings) -> StableDiffusionImg2ImgPipeline:
+    # CPU/MPS -> float32 ist stabil
+    # CUDA -> float16 (falls du irgendwann wieder echte CUDA hast)
     dtype = torch.float16 if cfg.device == "cuda" else torch.float32
 
     pipe = StableDiffusionImg2ImgPipeline.from_pretrained(
@@ -40,17 +42,27 @@ def _load_pipeline(cfg: SimpsonifySettings) -> StableDiffusionImg2ImgPipeline:
         torch_dtype=dtype,
         safety_checker=None,
         feature_extractor=None,
-    ).to(cfg.device)
+    )
 
+    pipe = pipe.to(cfg.device)
+    # Scheduler (wie in deiner ursprünglichen Version)
     pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(pipe.scheduler.config)
+
+    # CPU RAM/Speed helper
+    pipe.enable_attention_slicing()
 
     try:
         pipe.vae.enable_slicing()
     except Exception:
         pass
 
-    lora_path = str(Path(cfg.lora_path).resolve())
-    pipe.load_lora_weights(lora_path, adapter_name=_ADAPTER_NAME)
+    lora_path = Path(cfg.lora_path).expanduser().resolve()
+    if not lora_path.exists():
+        raise FileNotFoundError(f"LoRA file not found: {lora_path}")
+
+    # diffusers: je nach Version wird entweder file path oder directory akzeptiert
+    pipe.load_lora_weights(str(lora_path), adapter_name=_ADAPTER_NAME)
+
     pipe.set_adapters([_ADAPTER_NAME], adapter_weights=[cfg.lora_scale])
 
     if cfg.debug:
@@ -86,8 +98,12 @@ def _preprocess_image(image_bytes: bytes) -> Image.Image:
 def _make_generator(seed: Optional[int], device: str) -> Optional[torch.Generator]:
     if seed is None:
         return None
-    # Generator on the same device is the most consistent approach for diffusers
-    return torch.Generator(device=device).manual_seed(seed)
+
+    # Diffusers akzeptiert Generator; auf CPU ist das am stabilsten.
+    # MPS Generator ist nicht überall konsistent implementiert.
+    if device == "cuda":
+        return torch.Generator(device="cuda").manual_seed(seed)
+    return torch.Generator().manual_seed(seed)
 
 
 def simpsonify_image_bytes(
@@ -99,7 +115,9 @@ def simpsonify_image_bytes(
     pipe, cfg = get_pipeline()
 
     # enable/disable adapter
-    pipe.set_adapters([_ADAPTER_NAME], adapter_weights=[cfg.lora_scale if use_lora else 0.0])
+    pipe.set_adapters(
+        [_ADAPTER_NAME], adapter_weights=[cfg.lora_scale if use_lora else 0.0]
+    )
 
     img = _preprocess_image(image_bytes)
     gen = _make_generator(cfg.seed, cfg.device)

@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from backend.routes import router as api_router  # <-- FIX: package import
