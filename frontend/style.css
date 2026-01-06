@@ -1,53 +1,7 @@
 body {
     font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
     margin: 0;
-    background: #f6f7f9;
-}
-
-.wrap {
-    max-width: 720px;
-    margin: 48px auto;
-    padding: 0 16px;
-}
-
-.card {
-    background: white;
-    padding: 16px;
-    border-radius: 12px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
-}
-
-input {
-    width: 100%;
-    padding: 10px;
-    margin: 8px 0 12px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-}
-
-button {
-    padding: 10px 14px;
-    border: 0;
-    border-radius: 8px;
-    cursor: pointer;
-}
-
-pre {
-    background: #0b1020;
-    color: #d7e0ff;
-    padding: 12px;
-    border-radius: 10px;
-    overflow: auto;
-}
-
-.small {
-    color: #555;
-}
-
-body {
-    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
-    margin: 0;
-    background: #f6f7f9;
+    background: #dd4b3d;
 }
 
 .wrap {
@@ -69,10 +23,18 @@ body {
 }
 
 .card {
-    background: white;
+    background: rgb(254, 255, 245);
     padding: 16px;
     border-radius: 12px;
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+}
+
+input {
+    width: 100%;
+    padding: 10px;
+    margin: 8px 0 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
 }
 
 .row {
@@ -111,7 +73,7 @@ img {
 }
 
 .small {
-    color: #555;
+    color: #dd4b3d;
 }
 
 pre {
@@ -120,4 +82,10 @@ pre {
     padding: 12px;
     border-radius: 10px;
     overflow: auto;
+}
+
+h1,
+h2,
+h3 {
+    color: #dd4b3d !important;
 }

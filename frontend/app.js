@@ -7,8 +7,6 @@ const resultImg = document.getElementById("result");
 const log = document.getElementById("log");
 const health = document.getElementById("health");
 
-const promptEl = document.getElementById("prompt");
-const negativeEl = document.getElementById("negative");
 
 let stream = null;
 
@@ -27,9 +25,6 @@ async function loadConfig() {
         const res = await fetch("/api/config");
         if (!res.ok) throw new Error("config fetch failed");
         const cfg = await res.json();
-
-        if (promptEl && cfg.default_prompt) promptEl.value = cfg.default_prompt;
-        if (negativeEl && cfg.default_negative_prompt) negativeEl.value = cfg.default_negative_prompt;
 
         log.textContent = "Config geladen. Du kannst starten.";
     } catch (e) {
@@ -85,8 +80,6 @@ btnSend.addEventListener("click", async () => {
 
         const form = new FormData();
         form.append("image", blob, "snapshot.png");
-        form.append("prompt", promptEl ? promptEl.value : "");
-        form.append("negative_prompt", negativeEl ? negativeEl.value : "");
         form.append("use_lora", "1"); // testweise "0" zum Vergleich
 
         const res = await fetch("/api/simpsonify", {

@@ -21,7 +21,6 @@ from PySide6.QtWidgets import (
 BACKEND_URL = "http://127.0.0.1:8000/api/simpsonify"
 
 
-
 def frame_to_pixmap(frame_bgr) -> QPixmap:
     rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
     h, w, ch = rgb.shape
@@ -96,7 +95,9 @@ class Main(QWidget):
         self.cap = cv2.VideoCapture(0)
         if not self.cap.isOpened():
             self.cap = None
-            QMessageBox.critical(self, "Camera Error", "Could not open camera (index 0).")
+            QMessageBox.critical(
+                self, "Camera Error", "Could not open camera (index 0)."
+            )
             return
 
         self.timer.start(30)
