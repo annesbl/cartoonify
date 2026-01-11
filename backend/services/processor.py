@@ -1,10 +1,3 @@
-def process_text(text: str) -> str:
-    text = (text or "").strip()
-    if not text:
-        return "Bitte Text eingeben."
-    return f"Backend hat empfangen: {text}"
-
-
 from io import BytesIO
 from PIL import Image
 

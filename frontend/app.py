@@ -146,11 +146,9 @@ class Main(QWidget):
             with open(input_path, "rb") as f:
                 files = {"image": ("capture.png", f, "image/png")}
                 data = {
-                    "prompt": "simpsons character, thick black outline, very simple face, flat solid colors, yellow skin, 2D cel animation, cartoon TV show style, no shading, simple shapes",
-                    "strength": "0.75",
-                    "guidance": "6.0",
-                    "steps": "25",
-                    "seed": "0",
+                    "prompt": "",  # leer => Backend nimmt SD_DEFAULT_PROMPT aus .env
+                    "negative_prompt": "",  # leer => Backend nimmt SD_DEFAULT_NEGATIVE aus .env
+                    "use_lora": "1",
                 }
                 r = requests.post(BACKEND_URL, files=files, data=data, timeout=1800)
 
