@@ -34,7 +34,7 @@ _ADAPTER_NAME = "simpsons"
 
 def _load_pipeline(cfg: SimpsonifySettings) -> StableDiffusionImg2ImgPipeline:
     # CPU/MPS -> float32 ist stabil
-    # CUDA -> float16 (falls du irgendwann wieder echte CUDA hast)
+    # CUDA -> float16
     dtype = torch.float16 if cfg.device == "cuda" else torch.float32
 
     pipe = StableDiffusionImg2ImgPipeline.from_pretrained(

@@ -39,28 +39,44 @@ class SimpsonifySettings:
 
 def pick_device(explicit: Optional[str] = None) -> str:
     """
-    CPU-first für MacBook (ohne NVIDIA CUDA).
-    - Wenn SD_DEVICE gesetzt ist:
-        - "cpu" erzwingt CPU
-        - "mps" nutzt Apple Metal (wenn verfügbar), sonst CPU
-        - "cuda" wird ignoriert und fällt auf CPU zurück (damit es nicht crasht)
-    - Wenn SD_DEVICE NICHT gesetzt ist: CPU (oder MPS wenn du willst)
+    Device selection controlled via SD_DEVICE.
+
+    Supported values:
+    - "auto": prefer CUDA, then MPS, else CPU
+    - "cuda": use NVIDIA CUDA if available, else fallback to CPU
+    - "mps":  use Apple Metal if available, else fallback to CPU
+    - "cpu":  force CPU
     """
-    exp = (explicit or "").strip().lower()
+    exp = (explicit or "auto").strip().lower()
 
-    # explizite Wahl
-    if exp in {"cpu", "mps"}:
-        if exp == "mps":
-            try:
-                import torch
-
-                if torch.backends.mps.is_available():
-                    return "mps"
-            except Exception:
-                pass
+    try:
+        import torch
+    except Exception:
         return "cpu"
 
-    # "cuda" oder irgendwas anderes: auf Mac sicher auf CPU fallen
+    def has_cuda() -> bool:
+        return torch.cuda.is_available()
+
+    def has_mps() -> bool:
+        return (
+            getattr(torch.backends, "mps", None) is not None
+            and torch.backends.mps.is_available()
+        )
+
+    if exp == "cpu":
+        return "cpu"
+
+    if exp == "cuda":
+        return "cuda" if has_cuda() else "cpu"
+
+    if exp == "mps":
+        return "mps" if has_mps() else "cpu"
+
+    # default: auto
+    if has_cuda():
+        return "cuda"
+    if has_mps():
+        return "mps"
     return "cpu"
 
 
