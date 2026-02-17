@@ -71,7 +71,7 @@ Simpsonify is a full-stack application that converts real photos into stylized c
 
 1. **Backend** (`backend/`)
    - **FastAPI Application**: REST API server
-   - **Stable Diffusion Service**: Image-to-image transformation pipeline
+   - **Stable Diffusion Service**: two pass Image-to-image transformation pipeline
    - **Settings Management**: Environment-based configuration system
    - **LoRA Integration**: Custom model loading and adapter management
 
@@ -242,6 +242,22 @@ SD_PASS2_NEG=realistic skin, skin texture, skin detail, color variation, shading
 | `SD_PASS2_GUIDANCE` | Prompt adherence in pass 2 | `1.0` - `20.0` |
 | `SD_PASS2_STEPS` | Inference steps in pass 2 | `10` - `50` |
 
+#### before and after adjusting the parameters: 
+<table>
+  <tr>
+    <td width="50%">
+      <h3>Cartoonify</h3>
+      <p>before and after adjusting the parameters</p>
+      <p>
+        <img src="https://img.shields.io/badge/status-active-success.svg"/>
+        <img src="https://img.shields.io/badge/python-3.8%2B-blue.svg"/>
+      </p>
+    </td>
+    <td width="50%">
+      <img src="assets/screenshots/zugut.png" width="100%"/>
+    </td>
+  </tr>
+</table>
 ---
 
 ## 🚀 Usage
@@ -381,6 +397,13 @@ The models in this repository were trained using Google Colab. See the `training
 - No VRAM limitations
 - Free compute credits
 - Easy experimentation
+
+<div align="center">
+  <img src="assets/vergleich.png" width="600" alt="cartoonify Vergleich"/>
+</div>
+
+![Project Status](https://img.shields.io/badge/status-active-success.svg)
+
 
 ---
 
