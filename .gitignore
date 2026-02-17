@@ -12,3 +12,19 @@ __pycache__/
 
 # Env files
 .env
+# Model files (too large for git)
+*.safetensors
+
+# Training outputs
+output/
+logs/
+test_outputs/
+outputs_gui/
+
+# Dataset files
+prepared_images/
+raw_images/
+*.zip
+
+# Notebook checkpoints
+.ipynb_checkpoints/
