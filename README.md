@@ -1,4 +1,4 @@
-# Simpsonify
+# Cartoonify
 
 ![Project Status](https://img.shields.io/badge/status-active-success.svg)
 ![Python Version](https://img.shields.io/badge/python-3.8%2B-blue.svg)
@@ -6,7 +6,7 @@
 
 **Transform photos into cartoon-style images using Stable Diffusion with custom LoRA models.**
 
-Simpsonify is a full-stack application that converts real photos into stylized cartoon portraits using Stable Diffusion 1.5 with fine-tuned LoRA (Low-Rank Adaptation) models. The project features both a web-based interface and a desktop GUI for real-time camera capture and transformation.
+Cartoonify is a full-stack application that converts real photos into stylized cartoon portraits using Stable Diffusion 1.5 with fine-tuned LoRA (Low-Rank Adaptation) models. The project features both a web-based interface and a desktop GUI for real-time camera capture and transformation.
 
 ---
 <div align="center">
@@ -15,6 +15,29 @@ Simpsonify is a full-stack application that converts real photos into stylized c
 
 ![Project Status](https://img.shields.io/badge/status-active-success.svg)
 
+
+## 💡 Motivation
+
+Generative image models enable impressive image synthesis today. **Style transfer** is particularly popular – transforming real photos into a clearly recognizable, artistic style.
+
+Traditional style transfer approaches are often inflexible. Modern **diffusion models** deliver high quality but are difficult to precisely control for specific styles.
+
+**Simpsonify** addresses both challenges: Using **LoRA (Low-Rank Adaptation)**, we fine-tune Stable Diffusion on custom cartoon styles efficiently, without retraining the entire model. This enables:
+
+- 🎨 **Consistent, high-quality** cartoon transformations
+- ⚡ **Fast inference** with custom-trained styles
+- 🔧 **Full control** over the visual output
+
+### Privacy & Personal Use
+
+Beyond artistic applications, Simpsonify serves an important **privacy function**:
+
+- **Child safety**: Create cartoon avatars for kids instead of using real photos online
+- **Privacy protection**: Generate profile pictures that preserve anonymity while maintaining personality
+- **Professional boundaries**: Maintain online presence without revealing your actual appearance
+- **Creative expression**: Express yourself through a stylized persona
+
+In an era of increasing digital exposure, Simpsonify offers a **safe, creative alternative** to sharing real photos – perfect for parents, privacy-conscious users, or anyone who wants to control their digital identity.
 ## 📋 Table of Contents
 
 - [Features](#-features)
