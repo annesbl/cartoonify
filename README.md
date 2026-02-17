@@ -243,21 +243,11 @@ SD_PASS2_NEG=realistic skin, skin texture, skin detail, color variation, shading
 | `SD_PASS2_STEPS` | Inference steps in pass 2 | `10` - `50` |
 
 #### before and after adjusting the parameters: 
-<table>
-  <tr>
-    <td width="50%">
-      <h3>Cartoonify</h3>
-      <p>before and after adjusting the parameters</p>
-      <p>
-        <img src="https://img.shields.io/badge/status-active-success.svg"/>
-        <img src="https://img.shields.io/badge/python-3.8%2B-blue.svg"/>
-      </p>
-    </td>
-    <td width="50%">
-      <img src="assets/screenshots/zugut.png" width="100%"/>
-    </td>
-  </tr>
-</table>
+<div align="center">
+
+  <img src="assets/zugut.png" width="45%"/> <img src="assets/test.png" width="45%"/>
+
+</div>
 ---
 
 ## 🚀 Usage
