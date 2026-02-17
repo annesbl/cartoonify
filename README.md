@@ -245,7 +245,7 @@ SD_PASS2_NEG=realistic skin, skin texture, skin detail, color variation, shading
 #### before and after adjusting the parameters: 
 <div align="center">
 
-  <img src="assets/zugut.png" width="45%"/> <img src="assets/test.png" width="45%"/>
+<img src="assets/zugut.png" width="45%"/> <img src="assets/test.png" width="45%"/>
 
 </div>
 ---
