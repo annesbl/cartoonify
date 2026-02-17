@@ -9,8 +9,11 @@
 Simpsonify is a full-stack application that converts real photos into stylized cartoon portraits using Stable Diffusion 1.5 with fine-tuned LoRA (Low-Rank Adaptation) models. The project features both a web-based interface and a desktop GUI for real-time camera capture and transformation.
 
 ---
-![Web Interface](/assets/Bildschirmfoto 2026-02-17 um 02.48.33.png)
+<div align="center">
+  <img src="assets/poster.png" width="600" alt="Simpsonify Poster"/>
+</div>
 
+![Project Status](https://img.shields.io/badge/status-active-success.svg)
 
 ## 📋 Table of Contents
 
