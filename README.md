@@ -10,10 +10,8 @@ Cartoonify is a full-stack application that converts real photos into stylized c
 
 ---
 <div align="center">
-  <img src="assets/poster.png" width="600" alt="Simpsonify Poster"/>
+  <img src="assets/bildoben.png" width="600" alt="vorher nmachher"/>
 </div>
-
-![Project Status](https://img.shields.io/badge/status-active-success.svg)
 
 
 ## 💡 Motivation
@@ -38,6 +36,12 @@ Beyond artistic applications, Simpsonify serves an important **privacy function*
 - **Creative expression**: Express yourself through a stylized persona
 
 In an era of increasing digital exposure, Simpsonify offers a **safe, creative alternative** to sharing real photos – perfect for parents, privacy-conscious users, or anyone who wants to control their digital identity.
+
+<div align="center">
+  <img src="assets/poster.png" width="800" alt="vorher nmachher"/>
+</div>
+
+
 ## 📋 Table of Contents
 
 - [Features](#-features)
@@ -271,6 +275,7 @@ SD_PASS2_NEG=realistic skin, skin texture, skin detail, color variation, shading
 <img src="assets/zugut.png" width="45%"/> <img src="assets/test.png" width="45%"/>
 
 </div>
+
 ---
 
 ## 🚀 Usage
@@ -325,16 +330,7 @@ Start the backend server first:
 python main.py
 ```
 
-#### 2. Launch Desktop GUI
-
-In a **new terminal** (with the same virtual environment activated):
-
-```bash
-cd frontend
-python app.py
-```
-
-#### 3. Using the Desktop GUI
+#### 2. Using the Desktop GUI
 
 1. **Click "Start Camera"** to begin live preview
 2. **Click "Capture + Convert"** when ready
@@ -414,8 +410,6 @@ The models in this repository were trained using Google Colab. See the `training
 <div align="center">
   <img src="assets/vergleich.png" width="600" alt="cartoonify Vergleich"/>
 </div>
-
-![Project Status](https://img.shields.io/badge/status-active-success.svg)
 
 
 ---
