@@ -4,11 +4,11 @@ This directory contains resources for training custom LoRA models to create diff
 
 ## 📚 Contents
 
-- `simpsonify_training_kohya.ipynb` - **Actual training notebook used in google collab** (Kohya sd-scripts method)
+- `simpsonify_training_kohya.ipynb` - **Actual training notebook used in google collab** 
 - `README.md` - This file
 - `prepared_images` - some of the images I used for training 
 
-## 🚀 Quick Start i did (Google Colab - Kohya Method)
+## 🚀 Quick Start I did (Google Colab - Kohya Method)
 
 **This is the actual training method I used for the models in this repository.**
 
