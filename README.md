@@ -13,18 +13,31 @@ Cartoonify is a full-stack application that converts real photos into stylized c
   <img src="assets/bildoben.png" width="600" alt="vorher nmachher"/>
 </div>
 
+## 📋 Table of Contents
 
-## 💡 Motivation
+- [Motivation](#-motivation)
+- [Features](#-features)
+- [Architecture](#-architecture)
+- [Prerequisites](#-prerequisites)
+- [Installation](#-installation)
+- [Configuration](#-configuration)
+- [Usage](#-usage)
+- [Project Structure](#-project-structure)
+- [Model Training](#-model-training)
+- [API Reference](#-api-reference)
+- [Troubleshooting](#-troubleshooting)
+- [Performance Optimization](#-performance-optimization)
 
-Generative image models enable impressive image synthesis today. **Style transfer** is particularly popular – transforming real photos into a clearly recognizable, artistic style.
+---
+## Motivation
 
-Traditional style transfer approaches are often inflexible. Modern **diffusion models** deliver high quality but are difficult to precisely control for specific styles.
+Generative image models enable impressive image synthesis today, and **style transfer** — transforming real photos into a recognizable, artistic style — is one of the most popular applications. Traditional approaches are often inflexible, while modern diffusion models deliver high quality but are difficult to control precisely.
 
-**Simpsonify** addresses both challenges: Using **LoRA (Low-Rank Adaptation)**, we fine-tune Stable Diffusion on custom cartoon styles efficiently, without retraining the entire model. This enables:
+Cartoonify addresses both challenges using **LoRA (Low-Rank Adaptation)** to fine-tune Stable Diffusion on custom cartoon styles efficiently, without retraining the entire model. This enables:
 
-- 🎨 **Consistent, high-quality** cartoon transformations
-- ⚡ **Fast inference** with custom-trained styles
-- 🔧 **Full control** over the visual output
+-  **Consistent, high-quality** cartoon transformations
+-  **Fast inference** with custom-trained styles
+-  **Full control** over the visual output
 
 ### Privacy & Personal Use
 
@@ -35,28 +48,10 @@ Beyond artistic applications, Simpsonify serves an important **privacy function*
 - **Professional boundaries**: Maintain online presence without revealing your actual appearance
 - **Creative expression**: Express yourself through a stylized persona
 
-In an era of increasing digital exposure, Simpsonify offers a **safe, creative alternative** to sharing real photos – perfect for parents, privacy-conscious users, or anyone who wants to control their digital identity.
-
 <div align="center">
   <img src="assets/poster.png" width="800" alt="vorher nmachher"/>
 </div>
 
-
-## 📋 Table of Contents
-
-- [Features](#-features)
-- [Architecture](#-architecture)
-- [Prerequisites](#-prerequisites)
-- [Installation](#-installation)
-- [Configuration](#-configuration)
-- [Usage](#-usage)
-  - [Web Interface](#web-interface)
-- [Project Structure](#-project-structure)
-- [Model Training](#-model-training)
-- [Troubleshooting](#-troubleshooting)
-- [Performance Optimization](#-performance-optimization)
-
----
 
 ## ✨ Features
 
@@ -66,14 +61,11 @@ In an era of increasing digital exposure, Simpsonify offers a **safe, creative a
 - **Flexible Device Support**: Runs on CUDA (NVIDIA), MPS (Apple Silicon), or CPU
 - **Web Interface**: Browser-based UI for easy access
 - **Desktop GUI**: PySide6-based application with live camera preview
-- **Configurable Pipeline**: Extensive environment-based configuration
 - **RESTful API**: Backend API for integration with other applications
 
 ---
 
 ## 🏗 Architecture
-
-### System Overview
 
 ```
 ┌─────────────────┐
@@ -109,7 +101,7 @@ In an era of increasing digital exposure, Simpsonify offers a **safe, creative a
 
 3. **Models** (`backend/models/`)
    - LoRA weights for cartoon stylization
-   - Multiple model variants (simpsons_style, cartoonify)
+   - Multiple model variants 
 
 ---
 
@@ -117,18 +109,20 @@ In an era of increasing digital exposure, Simpsonify offers a **safe, creative a
 
 ### System Requirements
 
-- **Python**: 3.8 or higher
-- **RAM**: Minimum 8GB (16GB+ recommended for GPU)
-- **Storage**: ~10GB free space (for models and dependencies)
-- **GPU** (Optional but recommended):
-  - NVIDIA GPU with CUDA support (6GB+ VRAM), or
-  - Apple Silicon (M1/M2/M3) with MPS support
+| Requirement | Minimum |
+|-------------|---------|
+| Python | 3.8+ |
+| RAM | 8 GB (16 GB+ recommended) |
+| Storage | ~10 GB free |
+| GPU (optional) | NVIDIA 6 GB+ VRAM, or Apple Silicon |
 
 ### Hardware-Specific Notes
 
-- **CPU Only**: Works but slower (30-60 seconds per image)
-- **CUDA GPU**: Fast processing (3-10 seconds per image)
-- **Apple Silicon**: Moderate speed with MPS (10-20 seconds per image)
+| Device | Time per Image |
+|--------|----------------|
+| CPU only | 30–60 seconds |
+| Apple Silicon (MPS) | 10–20 seconds |
+| NVIDIA CUDA | 3–10 seconds |
 
 ---
 
@@ -183,21 +177,17 @@ This installs:
 - `opencv-python` (Camera capture)
 - `requests` (HTTP client)
 
-### Step 5: Download Models
+### 5. Add Your LoRA Model
 
-The project requires a LoRA model file. Ensure your `.safetensors` file is placed in:
-```
-backend/models/
-```
+Place your `.safetensors` file in `backend/models/`. The project includes these models by default:
 
-Current models in the project:
 - `simpsons_style_lora-000008.safetensors`
 - `cartoonify_lora-000008.safetensors`
 - `cartoonify_lora.safetensors`
 
 **Note**: Update the `SD_LORA_PATH` in `backend/.env` to match your chosen model.
 
-### Step 6: start projrct
+### Step 6: Start the Project
 
 ```bash
 python main.py
@@ -209,7 +199,7 @@ python main.py
 
 ### Environment Variables
 
-The application uses a `.env` file in the `backend/` directory for configuration. Create or edit `backend/.env`:
+The application uses a `.env` file in the `backend/` directory for configuration. Edit `backend/.env`:
 
 ```bash
 # Base Stable Diffusion Model
@@ -282,28 +272,12 @@ SD_PASS2_NEG=realistic skin, skin texture, skin detail, color variation, shading
 
 ### Web Interface
 
-The web interface provides a browser-based UI for capturing and transforming images.
-
-#### 1. Start the Backend Server
-
-```bash
-python main.py
-```
-
-Expected output:
-```
-INFO:     Started server process [12345]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000
-```
-
-#### 2. Open in Browser
-
-Navigate to:
-```
-http://127.0.0.1:8000
-```
+1. Start the server: `python main.py`
+2. Open `http://127.0.0.1:8000` in your browser
+3. Click **"Kamera starten"** to activate your webcam
+4. Click **"Foto aufnehmen"** to capture a photo
+5. Click **"An Backend senden"** to transform it
+6. Wait 10–60 seconds (depending on hardware) and view the result
 
 #### 3. Using the Web Interface
 
@@ -321,22 +295,11 @@ http://127.0.0.1:8000
 
 ### Desktop GUI
 
-The desktop GUI provides a native application with live camera preview.
-
-#### 1. Ensure Backend is Running
-
-Start the backend server first:
-```bash
-python main.py
-```
-
-#### 2. Using the Desktop GUI
-
-1. **Click "Start Camera"** to begin live preview
-2. **Click "Capture + Convert"** when ready
-3. Image is automatically sent to backend for processing
-4. Result appears in the right panel
-5. Images are saved to `frontend/outputs_gui/`
+1. Start the backend: `python main.py`
+2. In a **new terminal** (same virtual environment), run `cd frontend && python app.py`
+3. Click **"Start Camera"** for a live preview
+4. Click **"Capture + Convert"** — the image is sent automatically
+5. The result appears in the right panel and is saved to `frontend/outputs_gui/` 
 
 **Output Files:**
 - `capture_<timestamp>.png` - Original captured image
@@ -385,21 +348,20 @@ The project the approach for training custom LoRA models in **Google Colab Train
 ### Google Colab Training 
 
 **Why Colab?**
-- ✅ Free GPU access (T4/V100)
-- ✅ No local hardware requirements
-- ✅ Pre-configured environment
-- ✅ Faster training times
-- ✅ No installation hassles
+- Free GPU access (T4/V100)
+- No local hardware requirements
+- Pre-configured environment
+- Faster training times
+- No installation hassles
 
 The models in this repository were trained using Google Colab. See the `training/` directory for the complete Colab notebook and training configuration.
 
 **Quick Start:**
 1. Open `training/simpsonify_training.ipynb` in Google Colab
-2. Upload your dataset (or use the provided sample)
-3. Run all cells
-4. Download the trained `.safetensors` file
-5. Place it in `backend/models/`
-6. Update `SD_LORA_PATH` in `backend/.env`
+2. Upload your dataset (or use the provided samples)
+3. Run all cells and download the resulting `.safetensors` file
+4. Place it in `backend/models/` and update `SD_LORA_PATH` in `backend/.env`
+
 
 **Colab Advantages:**
 - Training time: ~1-2 hours (vs. 3-6 hours locally)
@@ -416,95 +378,33 @@ The models in this repository were trained using Google Colab. See the `training
 
 ## 🔌 API Reference
 
-### Endpoints
-
 #### `GET /api/health`
 
-Health check endpoint.
-
-**Response:**
 ```json
-{
-  "status": "ok"
-}
+{ "status": "ok" }
 ```
 
 ---
-
 
 ## 🐛 Troubleshooting
 
 ### Common Issues
 
-#### 1. **Camera not accessible in browser**
 
-**Problem:** Browser shows "Camera permission denied" or fails to start.
 
-**Solution:**
-- Ensure you're accessing via `http://localhost:8000` or `http://127.0.0.1:8000`
-- Modern browsers require HTTPS or localhost for camera access
-- Check browser permissions in Settings → Privacy → Camera
+**Camera not accessible in browser** — Access via `http://localhost:8000` or `http://127.0.0.1:8000`. Browsers require HTTPS or localhost for camera permissions.
 
----
+**LoRA file not found** — Verify `SD_LORA_PATH` in `.env` uses an absolute path to an existing `.safetensors` file.
 
-#### 2. **LoRA file not found**
+**CUDA out of memory** — Reduce `SD_PASS1/2_STEPS` to 10–15, or switch to CPU with `SD_DEVICE=cpu`. Close other GPU-intensive apps.
 
-**Error:** `FileNotFoundError: LoRA file not found: ...`
+**Slow CPU processing (60+ seconds)** — Expected on CPU. Reduce inference steps or disable two-pass mode with `SD_TWO_PASS=0`.
 
-**Solution:**
-- Verify `SD_LORA_PATH` in `backend/.env` points to an existing file
-- Use absolute paths, not relative paths
-- Check file extension is `.safetensors`
+**MPS errors (Apple Silicon)** — MPS support is experimental. Fall back to `SD_DEVICE=cpu`, and ensure you have the latest macOS and PyTorch.
+
+**`ModuleNotFoundError: No module named 'backend'`** — Run `python main.py` from the project root with your virtual environment activated.
 
 ---
-
-#### 3. **Out of memory (OOM) errors**
-
-**Error:** `RuntimeError: CUDA out of memory` or similar
-
-**Solution:**
-- Reduce `SD_PASS1_STEPS` and `SD_PASS2_STEPS` (try 10-15 each)
-- Switch to CPU mode: `SD_DEVICE=cpu`
-- Enable memory optimizations (already enabled by default)
-- Close other GPU-intensive applications
-
----
-
-#### 4. **Slow processing on CPU**
-
-**Problem:** Image transformation takes 60+ seconds
-
-**Solution:**
-- This is expected behavior on CPU
-- Consider using a GPU-enabled system
-- Reduce inference steps in `.env`
-- Disable two-pass mode: `SD_TWO_PASS=0`
-
----
-
-#### 5. **MPS (Apple Silicon) errors**
-
-**Error:** `RuntimeError: MPS backend out of memory` or crashes
-
-**Solution:**
-- MPS support is experimental in PyTorch
-- Switch to CPU: `SD_DEVICE=cpu`
-- Ensure you have latest macOS and PyTorch versions
-- Close memory-intensive applications
-
----
-
-#### 6. **Module import errors**
-
-**Error:** `ModuleNotFoundError: No module named 'backend'`
-
-**Solution:**
-- Ensure you run `python main.py` from the project root
-- Verify virtual environment is activated
-- Check `sys.path` includes project root
-
----
-
 ## ⚡ Performance Optimization
 
 ### Hardware-Specific Tips
@@ -567,30 +467,6 @@ Models are cached in:
 - Safety checker is **disabled** for faster inference
 - Do not expose the API to public networks without proper security measures
 - Web interface requires camera permissions
-
-### Browser Compatibility
-
-Tested and working:
-- ✅ Chrome/Chromium 90+
-- ✅ Firefox 88+
-- ✅ Safari 14+ (macOS/iOS)
-- ✅ Edge 90+
-
-### Platform Support
-
-- ✅ **Linux**: Full support (CPU/CUDA)
-- ✅ **macOS**: Full support (CPU/MPS)
-- ✅ **Windows**: Full support (CPU/CUDA)
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Areas for improvement:
-- Additional LoRA models
-- UI/UX enhancements
-- Performance optimizations
-- Documentation improvements
 
 ---
 
